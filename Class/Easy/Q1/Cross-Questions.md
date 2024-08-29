@@ -1544,3 +1544,319 @@ public class ECommercePlatform {
 ### Summary
 
 Inheritance allows a class (`Electronics`, `Clothing`) to inherit attributes and methods from another class (`Product`), while also adding or overriding functionality. This approach helps in organizing and managing different types of products efficiently in the E-Commerce Platform, ensuring both common functionality and specialized features are handled appropriately.
+
+---
+
+### What Happens If You Don't Explicitly Define a Constructor in a Class?
+
+In Java, if you don't explicitly define a constructor in your class, the Java compiler automatically provides a default constructor for you. Here's a detailed explanation of what happens in such a scenario:
+
+#### 1. **Default Constructor**
+
+- **Automatic Provision:** If you don't create any constructor in your class, the compiler automatically generates a default constructor for you. This constructor has no parameters and does nothing beyond calling the superclass's default constructor.
+- **No Custom Initialization:** The default constructor doesn't perform any custom initialization or setup beyond initializing the default values of the class's fields.
+
+#### 2. **Implicit Behavior**
+
+- **Initialization of Fields:** If your class has instance variables (fields), the default constructor initializes them to their default values:
+    - **Numeric types** (like `int`, `double`) are initialized to `0`.
+    - **Booleans** are initialized to `false`.
+    - **Reference types** (like `String`, objects) are initialized to `null`.
+- **Superclass Constructor:** The default constructor implicitly calls the no-argument constructor of the superclass (if there is one), ensuring the superclass part of the object is properly initialized.
+
+#### 3. **When You Define Constructors**
+
+- **Custom Constructors:** If you define your own constructors, the default constructor is not provided automatically. You would need to define it explicitly if you want a no-argument constructor in addition to your custom ones.
+- **Overloading:** You can define multiple constructors (overloading) with different parameters to allow for various ways of initializing objects.
+
+#### 4. **No-Argument Constructor Requirement**
+
+- **Inheritance:** If you are creating a subclass and you haven't defined any constructors in the subclass, the default constructor of the superclass will be called implicitly, provided the superclass has a no-argument constructor.
+- **Exception:** If the superclass does not have a no-argument constructor, and you haven’t defined any constructors in the subclass, you'll encounter a compilation error.
+
+### Summary
+
+If you don't explicitly define a constructor in a Java class, the compiler provides a default constructor that:
+- Initializes instance fields to their default values.
+- Calls the no-argument constructor of the superclass.
+
+This default constructor is helpful for simple scenarios but does not allow for custom initialization or setup of objects. If you need specific initialization or setup, you'll need to define your own constructors.
+
+### Real-Life Use Case Example: Online Order System
+
+#### Scenario: Managing Customer Orders
+
+In an **Online Order System**, you might have a class called `Order` that represents a customer’s order. The `Order` class might include details such as order ID, customer name, and order amount.
+
+### What Happens If You Don't Explicitly Define a Constructor?
+
+1. **Automatic Default Constructor:**
+    - If you don’t define any constructor in the `Order` class, Java provides a default constructor automatically. This default constructor initializes the class fields to their default values and calls the superclass’s no-argument constructor.
+
+2. **Field Initialization:**
+    - The default constructor initializes fields to default values (e.g., `null` for objects, `0` for numeric fields). This means that if you don’t explicitly set values, your `Order` objects will have default field values until they are explicitly assigned.
+
+### Example Code
+
+Here's how the `Order` class might look with and without an explicit constructor:
+
+#### Without Explicit Constructor
+
+```java
+// Order class without an explicit constructor
+public class Order {
+    private String orderId;
+    private String customerName;
+    private double amount;
+
+    // No explicit constructor defined
+
+    // Getter methods
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public double getAmount() {
+        return amount;
+    }
+
+    // Method to display order details
+    public void displayDetails() {
+        System.out.println("Order ID: " + orderId);
+        System.out.println("Customer Name: " + customerName);
+        System.out.println("Amount: $" + amount);
+    }
+}
+
+// Main class to test the Order class
+public class OnlineOrderSystem {
+    public static void main(String[] args) {
+        // Create Order object using default constructor
+        Order order = new Order();
+        
+        // Display details - will show default values
+        order.displayDetails();
+    }
+}
+```
+
+### Explanation
+
+1. **Default Constructor Behavior:**
+    - Since no constructor is explicitly defined in the `Order` class, the compiler provides a default constructor. This constructor initializes the `orderId`, `customerName`, and `amount` fields to their default values: `null`, `null`, and `0.0`, respectively.
+
+2. **Field Values:**
+    - When you create an `Order` object with the default constructor, the fields will have these default values until you manually set them.
+
+3. **Use in Industry:**
+    - In a real-world application, you might later need to provide specific initial values for these fields (e.g., setting a unique order ID or customer name). You would then need to define a custom constructor to handle such initialization.
+
+### Adding a Custom Constructor
+
+To provide initial values when creating an `Order` object, you would define a custom constructor:
+
+```java
+// Order class with a custom constructor
+public class Order {
+    private String orderId;
+    private String customerName;
+    private double amount;
+
+    // Custom constructor
+    public Order(String orderId, String customerName, double amount) {
+        this.orderId = orderId;
+        this.customerName = customerName;
+        this.amount = amount;
+    }
+
+    // Getter methods (same as before)
+    public String getOrderId() {
+        return orderId;
+    }
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public double getAmount() {
+        return amount;
+    }
+
+    // Method to display order details
+    public void displayDetails() {
+        System.out.println("Order ID: " + orderId);
+        System.out.println("Customer Name: " + customerName);
+        System.out.println("Amount: $" + amount);
+    }
+}
+
+// Main class to test the Order class
+public class OnlineOrderSystem {
+    public static void main(String[] args) {
+        // Create Order object using custom constructor
+        Order order = new Order("ORD123", "Alice Johnson", 250.75);
+        
+        // Display details - will show provided values
+        order.displayDetails();
+    }
+}
+```
+
+### Summary
+
+- **Without Explicit Constructor:** Java provides a default constructor that initializes fields to default values (`null`, `0.0`, etc.). This is useful for simple cases but doesn’t allow for specific initialization.
+- **With Custom Constructor:** You can define a constructor to initialize fields with specific values, making your class more flexible and suitable for real-world scenarios.
+
+In the context of an online order system, defining a custom constructor allows you to create `Order` objects with specific details right from the start, ensuring that the objects are properly initialized with meaningful data.
+
+---
+
+### What is a Sealed Class?
+
+In Java, a **sealed class** is a special type of class that restricts which other classes can inherit from it. This feature was introduced in Java 15 as a preview and became a standard feature in Java 17. Sealed classes provide more control over class hierarchies and help ensure that the class hierarchy is both controlled and predictable.
+
+### How It Works
+
+1. **Declaration:**
+    - A class is declared as `sealed` by using the `sealed` keyword in its definition. This indicates that the class cannot be subclassed by any class except those explicitly permitted by the class itself.
+
+2. **Permitted Subclasses:**
+    - The sealed class specifies which classes are allowed to extend it using the `permits` clause. Only the classes listed in this clause can directly inherit from the sealed class.
+
+3. **Inheritance Control:**
+    - Subclasses of a sealed class must either be declared as `final` (meaning they cannot be further subclassed) or themselves be `sealed`, `non-sealed`, or `final`.
+
+### Differences from Regular Classes
+
+1. **Inheritance Restriction:**
+    - **Sealed Class:** Limits which classes can extend it. You define explicitly which subclasses are allowed.
+    - **Regular Class:** Can be extended by any other class unless it is marked as `final` (which prevents extension).
+
+2. **Control Over Class Hierarchy:**
+    - **Sealed Class:** Provides strict control over the class hierarchy. You can prevent unauthorized or unexpected extensions, making the design more predictable and manageable.
+    - **Regular Class:** Offers no built-in mechanism to control which classes can extend it, leading to potentially uncontrolled or unexpected class hierarchies.
+
+3. **Explicit Declaration:**
+    - **Sealed Class:** Requires explicit listing of allowed subclasses in the `permits` clause.
+    - **Regular Class:** Does not require any special declaration for subclassing, beyond standard access control.
+
+### Summary
+
+A sealed class in Java is a class that restricts which other classes can extend it, providing a way to control the inheritance hierarchy more precisely. This differs from a regular class, which can be freely extended by any class unless marked as `final`. Sealed classes help in managing and maintaining predictable and secure class hierarchies.
+
+### Real-Life Use Case Example: Payment Processing System
+
+#### Scenario: Managing Payment Methods
+
+In a **Payment Processing System**, you might need to handle different types of payment methods such as Credit Card, PayPal, and Bank Transfer. You want to ensure that only specific payment methods are used and prevent any unauthorized or unexpected payment types from being introduced.
+
+### Sealed Class Use Case
+
+In this scenario, using a sealed class for payment methods allows you to tightly control which types of payment methods are available. This helps ensure that your system remains secure and consistent by only allowing known and validated payment methods.
+
+### Example Code
+
+Here’s how you might define a sealed class for payment methods and the allowed subclasses:
+
+#### Step 1: Define the Sealed Class
+
+```java
+// Define a sealed class for PaymentMethod
+public sealed class PaymentMethod permits CreditCard, PayPal, BankTransfer {
+    // Common properties and methods for payment methods
+    private final String methodName;
+
+    protected PaymentMethod(String methodName) {
+        this.methodName = methodName;
+    }
+
+    public String getMethodName() {
+        return methodName;
+    }
+
+    public abstract void processPayment(double amount);
+}
+```
+
+#### Step 2: Define Permitted Subclasses
+
+```java
+// Define the CreditCard subclass
+public final class CreditCard extends PaymentMethod {
+    public CreditCard() {
+        super("Credit Card");
+    }
+
+    @Override
+    public void processPayment(double amount) {
+        System.out.println("Processing credit card payment of $" + amount);
+    }
+}
+
+// Define the PayPal subclass
+public final class PayPal extends PaymentMethod {
+    public PayPal() {
+        super("PayPal");
+    }
+
+    @Override
+    public void processPayment(double amount) {
+        System.out.println("Processing PayPal payment of $" + amount);
+    }
+}
+
+// Define the BankTransfer subclass
+public final class BankTransfer extends PaymentMethod {
+    public BankTransfer() {
+        super("Bank Transfer");
+    }
+
+    @Override
+    public void processPayment(double amount) {
+        System.out.println("Processing bank transfer payment of $" + amount);
+    }
+}
+```
+
+#### Step 3: Use the Sealed Class in Payment Processing
+
+```java
+public class PaymentProcessor {
+    public void processPayment(PaymentMethod paymentMethod, double amount) {
+        paymentMethod.processPayment(amount);
+    }
+
+    public static void main(String[] args) {
+        PaymentProcessor processor = new PaymentProcessor();
+
+        PaymentMethod creditCard = new CreditCard();
+        PaymentMethod payPal = new PayPal();
+        PaymentMethod bankTransfer = new BankTransfer();
+
+        processor.processPayment(creditCard, 100.00);
+        processor.processPayment(payPal, 200.00);
+        processor.processPayment(bankTransfer, 300.00);
+    }
+}
+```
+
+### Explanation
+
+1. **Sealed Class Definition:**
+    - `PaymentMethod` is a sealed class that explicitly allows only `CreditCard`, `PayPal`, and `BankTransfer` to extend it. This ensures that no other classes can extend `PaymentMethod`, which helps in maintaining a controlled set of payment methods.
+
+2. **Permitted Subclasses:**
+    - Each subclass (`CreditCard`, `PayPal`, `BankTransfer`) is declared as `final`, meaning they cannot be further extended. They provide specific implementations of the `processPayment` method.
+
+3. **Benefits of Sealed Classes:**
+    - **Controlled Inheritance:** Only the specified payment methods are allowed, preventing any new or unauthorized payment methods from being introduced.
+    - **Predictability:** The set of possible payment methods is known and fixed, making the system easier to manage and less error-prone.
+    - **Security:** By limiting the types of payment methods, you reduce the risk of unexpected behaviors or vulnerabilities.
+
+### Summary
+
+In this Payment Processing System example, a sealed class is used to define and control a fixed set of payment methods. The `PaymentMethod` class is sealed, allowing only specific, predefined subclasses. This approach helps maintain a predictable and secure system, ensuring that only authorized payment methods are used.
