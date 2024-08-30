@@ -1,0 +1,5 @@
+- **Encapsulation**:
+    - Definition and importance in OOP.
+    - Access modifiers (private, protected, public) and their role in encapsulation.
+    - Getters and setters: Best practices and pitfalls.
+    - Encapsulating behavior: Hiding implementation details.
