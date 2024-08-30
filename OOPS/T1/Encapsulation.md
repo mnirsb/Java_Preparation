@@ -664,3 +664,68 @@ public class Main {
     - Internal logic and validation are managed within the class.
 
 ---
+
+### **1. Easy: Implementing Basic Encapsulation**
+
+**Problem**:  
+Create a `Product` class that encapsulates details about a product sold by an e-commerce platform. The class should have private fields for `productId`, `productName`, and `price`. Implement public getter and setter methods for each field. Ensure that the `price` cannot be set to a negative value.
+
+**Requirements**:
+- Use appropriate access modifiers to enforce encapsulation.
+- Implement validation in the setter for `price` to prevent invalid values.
+
+---
+
+### **2. Medium: Designing a Secure Bank Account Class**
+
+**Problem**:  
+Design a `BankAccount` class that encapsulates the details of a bank account. The class should have private fields for `accountNumber`, `accountHolderName`, and `balance`. Implement methods for `deposit` and `withdraw`. The `withdraw` method should ensure that the balance does not go below zero. Additionally, implement a method to retrieve the current balance, ensuring that only authorized classes (e.g., `BankManager`) can access it using appropriate access modifiers.
+
+**Requirements**:
+- Use `private`, `protected`, and `public` access modifiers effectively.
+- Implement method-level encapsulation to control access to sensitive data.
+
+---
+
+### **3. Medium: Refactoring with Encapsulation**
+
+**Problem**:  
+You are given a legacy class `Employee` that exposes all its fields as public. Refactor this class to encapsulate its fields (`name`, `salary`, `department`). Implement getters and setters with the following constraints:
+- The `salary` field should be validated to ensure it is within the range of 30,000 to 200,000.
+- The `department` field should only accept a predefined list of department names.
+
+**Requirements**:
+- Refactor the class to improve encapsulation.
+- Implement validation within the setters to enforce business rules.
+
+---
+
+### **4. Hard: Encapsulating Complex Behavior**
+
+**Problem**:  
+Create a `CustomerOrder` class for an order management system. The class should encapsulate the details of an order, including `orderId`, `customerName`, and a list of `OrderItem` objects. The `OrderItem` class should encapsulate `itemName`, `quantity`, and `pricePerItem`. Implement methods in the `CustomerOrder` class to:
+- Add an `OrderItem` to the order.
+- Remove an `OrderItem` from the order.
+- Calculate the total order value, which should be derived internally and not exposed directly.
+
+**Requirements**:
+- Encapsulate the behavior related to the order and its items.
+- Ensure that the internal list of `OrderItem` objects is not exposed directly but is managed through encapsulated methods.
+- Implement any necessary validations within the encapsulated methods.
+
+---
+
+### **5. Hard: Building a Configurable Logger with Encapsulation**
+
+**Problem**:  
+Design a `Logger` class that encapsulates the behavior of a logging system used in a backend application. The `Logger` class should have private fields for `logLevel` (e.g., ERROR, WARN, INFO), `logFilePath`, and `logFormat` (e.g., JSON, Plain Text). Implement methods to:
+- Log messages at different levels (e.g., `logError`, `logWarning`, `logInfo`).
+- Change the logging configuration at runtime, such as updating the `logLevel` or `logFormat`.
+- Ensure that the actual implementation details of how the logging is performed (e.g., writing to a file) are hidden from the class's users.
+
+**Requirements**:
+- Encapsulate the logging behavior and configuration details.
+- Allow runtime configuration changes while ensuring that the logging functionality remains consistent and secure.
+- Implement best practices to handle potential concurrency issues when the logging configuration is changed.
+
+---
