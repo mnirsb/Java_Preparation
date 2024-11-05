@@ -125,3 +125,93 @@ try {
 3. **Integration with Google Cloud Logging**: If you’re using Google Cloud, consider directly integrating Winston with Google Cloud Logging to centralize logs across multiple services in GCP.
 
 This enhanced configuration ensures a production-grade logging system with improved traceability, error handling, and integration with other parts of the application. Let me know if you need help with setting this up or troubleshooting!
+
+
+
+-----
+
+Yes, mixing `import` and `require` can lead to issues in your code, especially when using a module system in Node.js. When using ES6 modules (with `import`), you should also use `import` for all dependencies to maintain consistency and avoid potential errors.
+
+### Correcting the Logger Setup
+
+You can replace the `require` statement for `winston-daily-rotate-file` with an `import` statement. Here’s how you can do it:
+
+```javascript
+import { createLogger, format, transports } from 'winston';
+import path from 'path';
+import WinstonDailyRotateFile from 'winston-daily-rotate-file';
+
+// Determine log level based on environment
+const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+
+// Define custom log format with timestamp and label
+const customFormat = format.combine(
+  format.label({ label: path.basename(process.mainModule.filename) }),
+  format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  format.printf(info => `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`)
+);
+
+// Configure transports with rotation and different files for error logs
+const logger = createLogger({
+  level: logLevel,
+  format: format.combine(
+    format.json(),
+    format.errors({ stack: true }) // Include stack trace for errors
+  ),
+  transports: [
+    // Console transport for development and debugging
+    new transports.Console({
+      format: format.combine(
+        format.colorize(),
+        format.simple(),
+        customFormat
+      )
+    }),
+    
+    // Daily rotating log file for general logs
+    new WinstonDailyRotateFile({
+      filename: 'logs/app-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d', // Keep logs for 14 days
+      zippedArchive: true,
+      format: customFormat
+    }),
+
+    // Separate file for error logs
+    new WinstonDailyRotateFile({
+      level: 'error',
+      filename: 'logs/error-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '30d', // Keep error logs for 30 days
+      zippedArchive: true,
+      format: customFormat
+    })
+  ],
+
+  // Handle uncaught exceptions and unhandled rejections
+  exceptionHandlers: [
+    new transports.File({ filename: 'logs/exceptions.log' })
+  ],
+  rejectionHandlers: [
+    new transports.File({ filename: 'logs/rejections.log' })
+  ]
+});
+
+// Optional: Stream method for integrating with other logging libraries (e.g., Morgan for HTTP request logging)
+logger.stream = {
+  write: (message) => {
+    logger.info(message.trim());
+  }
+};
+
+export default logger;
+```
+
+### Key Changes:
+1. **Use of `import`**: The `require` statement for `winston-daily-rotate-file` is changed to an `import` statement, which is consistent with the ES6 module syntax.
+2. **Exporting the Logger**: Make sure to export the logger using `export default logger;` for use in other modules.
+
+### Notes:
+- Ensure that your Node.js version supports ES modules (version 12.x and above).
+- Ensure your project has the correct setup to support ES modules, such as including `"type": "module"` in your `package.json`.
+- By keeping all imports consistent, you avoid confusion and potential runtime errors associated with mixed module systems.
