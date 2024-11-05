@@ -494,3 +494,109 @@ app.listen(3000, () => {
 ### Summary
 
 This setup provides structured JSON logging with daily rotation for Pino, aligning closely with your original Winston configuration. Pino’s JSON-based logging with optional pretty-printing and serialization options make it an efficient choice, especially for applications where performance is critical.
+
+
+
+-----
+
+The error `ReferenceError: logLevel is not defined` indicates that the `logLevel` variable is being used before it is defined or accessible in the current scope.
+
+Upon reviewing the provided code snippet, the `logLevel` variable is properly defined. However, if this error persists, there might be an issue with the import order or execution context.
+
+### Steps to Resolve the Issue:
+
+1. **Ensure Proper Environment Variable Setup**:
+   - Double-check that `process.env.NODE_ENV` is set properly. You can add a debug line to print it out:
+     ```javascript
+     console.log('NODE_ENV:', process.env.NODE_ENV);
+     ```
+   - This will help confirm if `NODE_ENV` is correctly set and accessible.
+
+2. **Check for Typo or Misplacement**:
+   - Ensure there is no typo or misplaced code that might be causing a scope issue.
+
+3. **Node.js Version Compatibility**:
+   - Verify that you are using a compatible Node.js version that supports ES modules (`import` syntax) and environment variable usage.
+
+4. **Script Execution Context**:
+   - If you are running the script in an environment where variables might not propagate correctly, ensure you start the Node.js process with the appropriate environment variables. For example:
+     ```bash
+     NODE_ENV=development node src/main.js
+     ```
+
+5. **Potential Debugging**:
+   - Add logging statements before defining `logLevel` to confirm the execution order:
+     ```javascript
+     console.log('Before defining logLevel');
+     ```
+
+### Corrected and Debug Version:
+Add debug statements to ensure that the environment and variables are behaving as expected:
+```javascript
+import pino from 'pino';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import PinoDailyRotateFile from 'pino-daily-rotate-file';
+
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
+// Get the current filename to use as a label
+const __filename = fileURLToPath(import.meta.url);
+const fileLabel = path.basename(__filename);
+
+// Determine log level based on environment
+const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+console.log('Log Level:', logLevel);
+
+// Define a rotating log file transport
+const generalFileTransport = new PinoDailyRotateFile({
+  filename: 'logs/app-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  level: logLevel,
+  maxFiles: '14d', // Keep logs for 14 days
+  zippedArchive: true,
+});
+
+const errorFileTransport = new PinoDailyRotateFile({
+  filename: 'logs/error-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  level: 'error',
+  maxFiles: '30d', // Keep error logs for 30 days
+  zippedArchive: true,
+});
+
+// Configure Pino options
+const logger = pino({
+  level: logLevel,
+  formatters: {
+    level: (label) => ({ level: label }),
+    log: (info) => ({
+      ...info,
+      label: fileLabel,
+    }),
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  prettyPrint: process.env.NODE_ENV !== 'production' && {
+    colorize: true,
+    translateTime: 'yyyy-mm-dd HH:MM:ss',
+  },
+  serializers: {
+    err: pino.stdSerializers.err,
+  },
+}, pino.multistream([
+  { stream: generalFileTransport },     // Daily rotating log file for general logs
+  { stream: errorFileTransport },       // Separate file for error logs
+  { stream: process.stdout, level: logLevel }, // Console transport for development
+]));
+
+// Optional: Add a stream method for HTTP request logging (if using with Morgan)
+logger.stream = {
+  write: (message) => {
+    logger.info(message.trim());
+  }
+};
+
+export default logger;
+```
+
+Try running the script again and check the output of the debug logs to ensure everything is working as expected.
