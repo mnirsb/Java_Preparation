@@ -218,27 +218,64 @@ export default logger;
 
 
 -----
-import { createLogger, format, transports } from 'winston';
-import path from 'path';
-import { fileURLToPath } from 'url';
-require('winston-daily-rotate-file');
+The error here, `Cannot read properties of undefined (reading 'filename')`, is likely caused by the `process.mainModule` property, which can be `undefined` in some Node.js environments, especially when using ES modules (`type: "module"` in `package.json`) or certain execution contexts.
 
-const __filename = fileURLToPath(import.meta.url);
+To resolve this, we can replace `process.mainModule.filename` with an alternative that reliably gets the current file name. Here are two options:
 
-const logger = createLogger({
-  format: format.combine(
-    format.label({ label: path.basename(__filename) }),
-    format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    format.printf(
-      info => `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`
-    )
-  ),
-  transports: [
-    new transports.Console(),
-    // Other transports as needed
-  ]
-});
+1. **Use `import.meta.url` for ES Modules**:
+   If your project is using ES modules (`type: "module"` in `package.json`), you can use `import.meta.url` to get the current module's URL, then convert it to a path:
 
-export default logger;
+   ```javascript
+   import { createLogger, format, transports } from 'winston';
+   import path from 'path';
+   import { fileURLToPath } from 'url';
+   require('winston-daily-rotate-file');
 
+   const __filename = fileURLToPath(import.meta.url);
 
+   const logger = createLogger({
+     format: format.combine(
+       format.label({ label: path.basename(__filename) }),
+       format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+       format.printf(
+         info => `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`
+       )
+     ),
+     transports: [
+       new transports.Console(),
+       // Other transports as needed
+     ]
+   });
+
+   export default logger;
+   ```
+
+2. **Use `__filename` for CommonJS**:
+   If your project is using CommonJS modules (no `type: "module"` in `package.json`), you can simply use the global `__filename` variable:
+
+   ```javascript
+   const { createLogger, format, transports } = require('winston');
+   const path = require('path');
+   require('winston-daily-rotate-file');
+
+   const logger = createLogger({
+     format: format.combine(
+       format.label({ label: path.basename(__filename) }),
+       format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+       format.printf(
+         info => `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`
+       )
+     ),
+     transports: [
+       new transports.Console(),
+       // Other transports as needed
+     ]
+   });
+
+   module.exports = logger;
+   ```
+
+### Explanation of `path.basename(__filename)`:
+- `path.basename(__filename)` extracts just the file name (e.g., `logger.js`) from the full path, making log output cleaner and focused on the file where each log was generated.
+
+Try one of these approaches based on your module system, and this should resolve the error. Let me know if you need further help!
