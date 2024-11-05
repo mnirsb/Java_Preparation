@@ -279,3 +279,92 @@ To resolve this, we can replace `process.mainModule.filename` with an alternativ
 - `path.basename(__filename)` extracts just the file name (e.g., `logger.js`) from the full path, making log output cleaner and focused on the file where each log was generated.
 
 Try one of these approaches based on your module system, and this should resolve the error. Let me know if you need further help!
+
+
+----
+
+The error here is due to the usage of `process.filename`, which is not a valid property. If you want to get the current file’s name in an ES module, you should use `import.meta.url` instead, as `process.mainModule.filename` and `__filename` are not available in ES modules.
+
+Here’s how you can modify the code to get the file name in an ES module context:
+
+1. **Get the current file name using `import.meta.url`**:
+   Since you’re using ES modules, you’ll need to convert `import.meta.url` to a file path.
+
+2. **Use `fileURLToPath` from the `url` module**:
+   This will allow you to convert `import.meta.url` into a usable file path.
+
+Here’s how to adjust your code:
+
+```javascript
+import { createLogger, format, transports } from 'winston';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import WinstonDailyRotateFile from 'winston-daily-rotate-file';
+
+// Convert import.meta.url to a file path
+const __filename = fileURLToPath(import.meta.url);
+
+// Determine log level based on environment
+const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+
+// Define custom log format with timestamp and label
+const customFormat = format.combine(
+  format.label({ label: path.basename(__filename) }),
+  format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+  format.printf(info => `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`)
+);
+
+// Configure transports with rotation and different files for error logs
+const logger = createLogger({
+  level: logLevel,
+  format: format.combine(
+    format.json(),
+    format.errors({ stack: true }) // Include stack trace for errors
+  ),
+  transports: [
+    // Console transport for development and debugging
+    new transports.Console({
+      format: format.combine(
+        format.colorize(),
+        format.simple(),
+        customFormat
+      )
+    }),
+    
+    // Daily rotating log file for general logs
+    new WinstonDailyRotateFile({
+      filename: 'logs/app-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '14d', // Keep logs for 14 days
+      zippedArchive: true,
+      format: customFormat
+    }),
+
+    // Separate file for error logs
+    new WinstonDailyRotateFile({
+      level: 'error',
+      filename: 'logs/error-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxFiles: '30d', // Keep error logs for 30 days
+      zippedArchive: true,
+      format: customFormat
+    })
+  ],
+
+  // Handle uncaught exceptions and unhandled rejections
+  exceptionHandlers: [
+    new transports.File({ filename: 'logs/exceptions.log' })
+  ],
+  rejectionHandlers: [
+    new transports.File({ filename: 'logs/rejections.log' })
+  ]
+});
+
+export default logger;
+```
+
+### Explanation:
+- `const __filename = fileURLToPath(import.meta.url);` converts the module's URL to a file path so you can use it with `path.basename`.
+- `path.basename(__filename)` now correctly extracts the current file’s name for logging labels.
+
+This adjustment should fix the error, and you can now use `logger` with custom labels in an ES module environment.
