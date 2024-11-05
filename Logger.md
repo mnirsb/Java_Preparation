@@ -846,3 +846,103 @@ export default logger;
 2. **Using `@google-cloud/logging`**: Direct integration with Google Cloud Logging for centralized log management and analysis, especially useful for applications deployed on GCP.
 
 Choose the method that best suits your deployment needs. For local development or non-cloud environments, `rotating-file-stream` is effective. For GCP deployments, integrating with `@google-cloud/logging` provides seamless log management.
+
+
+
+----
+To ensure that the log files, including the audit file for rotating logs, are created inside the `logs` directory, you need to specify the `path` option for the audit file in the `rotating-file-stream` configuration.
+
+Here's the updated code:
+
+```javascript
+import pino from 'pino';
+import pretty from 'pino-pretty';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const rfs = require('rotating-file-stream');
+
+// Get the current filename to use as a label
+const __filename = fileURLToPath(import.meta.url);
+const fileLabel = path.basename(__filename);
+
+// Determine log level based on environment
+const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+
+// Define the logs directory
+const logsDirectory = path.join(process.cwd(), 'logs');
+
+// Ensure the logs directory exists
+import fs from 'fs';
+if (!fs.existsSync(logsDirectory)) {
+  fs.mkdirSync(logsDirectory, { recursive: true });
+}
+
+// Create a rotating file stream
+const generalFileStream = rfs.createStream('app.log', {
+  interval: '1d', // Rotate daily
+  path: logsDirectory, // Directory for logs
+  compress: 'gzip', // Compress the rotated files
+  maxFiles: 14, // Keep logs for 14 days
+  audit_file: path.join(logsDirectory, 'app-audit.json'), // Audit file for rotation
+});
+
+const errorFileStream = rfs.createStream('error.log', {
+  interval: '1d',
+  path: logsDirectory, // Directory for logs
+  compress: 'gzip',
+  maxFiles: 30, // Keep error logs for 30 days
+  audit_file: path.join(logsDirectory, 'error-audit.json'), // Audit file for rotation
+});
+
+// Configure Pino logger
+const streams = [
+  { stream: generalFileStream }, // General log file
+  { stream: errorFileStream, level: 'error' }, // Error log file
+];
+
+if (process.env.NODE_ENV !== 'production') {
+  streams.push({
+    stream: pretty({
+      colorize: true,
+      translateTime: 'yyyy-mm-dd HH:MM:ss',
+      ignore: 'pid,hostname', // Customize as per your requirements
+    }),
+  });
+} else {
+  streams.push({ stream: process.stdout, level: logLevel }); // Console output
+}
+
+const logger = pino({
+  level: logLevel,
+  formatters: {
+    level: (label) => ({ level: label }),
+    log: (info) => ({
+      ...info,
+      label: fileLabel,
+    }),
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  serializers: {
+    err: pino.stdSerializers.err,
+  },
+}, pino.multistream(streams));
+
+// Added a stream method for HTTP request logging with Morgan
+logger.stream = {
+  write: (message) => {
+    logger.info(message.trim());
+  }
+};
+
+export default logger;
+```
+
+### Key Changes:
+
+1. **Audit File Paths**: The `audit_file` option is now explicitly set to place the audit files inside the `logs` directory for both `app.log` and `error.log`.
+
+2. **Ensure Logs Directory**: A check is added to create the `logs` directory if it doesn't already exist, ensuring the directory structure is ready for the log files.
+
+With these changes, both your log files and their respective audit files will be saved inside the `logs` directory.
