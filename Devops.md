@@ -329,3 +329,81 @@ Implementing comprehensive logging for your application involves structured logg
 
 By following these steps, you'll achieve robust, structured logging that simplifies debugging, improves security monitoring, and integrates smoothly with your GCP deployment. Let me know if you need any further configuration guidance or troubleshooting help.
 
+
+------
+
+**JIRA Ticket: Logging & Monitoring Setup**
+
+---
+
+### **Logging Setup**
+
+#### **1. Application-Level Logging**
+
+- **Structured Logging**: I’ll set up **Winston** or **Pino** in Node.js to format logs in JSON, so we can easily search for fields like `customer`, `version`, and `report_id`. This will make both security monitoring and debugging easier.
+
+- **Logging Key Events**:
+   - I’ll log all main API calls and responses, especially in the FullRelease, Archive, Alerts, and Roadmap flows (for example, `GET /:report_id/archive` or `POST /compare-report`).
+   - I’ll capture any API call errors, focusing on important files like `multi-report.js` and `create-archive-report.js`.
+   - For CRON jobs, I’ll log results in `alerts-cron.js` and `roadmap-cron.js` to capture both successful updates and any new vulnerabilities detected.
+
+#### **2. Container & Infrastructure Logging**
+
+- **Docker Logging**: I’ll configure Docker to send logs to a centralized storage location. For local storage, I’ll use `json-file`, but I’ll switch to `gelf` or `fluentd` for external storage if needed.
+
+- **Google Cloud Logging**: I’ll use **Fluentd** on GCP Kubernetes to forward container logs to **Google Cloud Logging**. Fluentd will parse the JSON logs from Winston/Pino, making it easier to search for specific fields and set up alerts.
+
+#### **3. Centralized Log Management**
+
+- **Google Cloud Operations (Stackdriver)**: I’ll set up Google Cloud Logging to bring together all logs (including those from CRON jobs and the database) across our containers, Kubernetes pods, and other GCP services.
+
+- **Retention & Indexing**: I’ll set up a retention policy based on compliance requirements (around 30-90 days) and create filters in Google Cloud Logging to search logs by key fields like `report_id` or `customer`.
+
+---
+
+### **Monitoring Setup**
+
+#### **1. Application Performance Monitoring (APM)**
+
+- **Prometheus**: I’ll use Prometheus with Grafana to track our main metrics, such as:
+   - API response times and error rates on FullRelease, Archive, and Alerts.
+   - The number of vulnerabilities identified in each CRON job cycle.
+   - Cache metrics like hits, misses, and evictions from `reportCache`.
+
+- **Google Cloud Monitoring**: I’ll monitor resource usage for our main pods, `csp-sisyphus-backend` and `csp-sisyphus-ui`, to track CPU, memory, and network usage.
+
+#### **2. Alerts & Notifications**
+
+- **Google Cloud Alerting**: I’ll create alerts for critical events, such as:
+   - High API error rates.
+   - Failures or delays in CRON jobs like `alerts-cron.js` or `roadmap-cron.js`.
+   - Database connection issues, especially during important processes like `createArchiveReport` or `compare-report`.
+
+- **Prometheus Alertmanager**: I’ll set up custom alerts based on specific metrics, like a sudden increase in vulnerability counts or slow API response times. I’ll route these alerts to Slack, email, or an incident management tool.
+
+#### **3. Visualization & Dashboards**
+
+- **Grafana**: I’ll set up dashboards in Grafana using Prometheus data to show trends over time, such as:
+   - Vulnerability counts, which will help track security improvements.
+   - CRON job success and failure rates.
+   - API latency and error rates across FullRelease, Archive, Alerts, and Roadmap.
+
+- **Google Cloud Monitoring Dashboards**: I’ll use Google Cloud Monitoring to create dashboards for infrastructure metrics and pull in custom metrics from Prometheus.
+
+---
+
+### **Kubernetes (GCP) Setup**
+
+1. **Helm Charts**: I’ll use Helm to deploy Prometheus, Fluentd, and Grafana into our Kubernetes cluster.
+   - **Prometheus Operator**: This will help me quickly set up Prometheus and connect it to Alertmanager and Grafana.
+   - **Fluentd DaemonSet**: I’ll deploy Fluentd as a DaemonSet to gather logs from all pods.
+   - **Grafana**: I’ll configure Grafana to pull data from both Prometheus and Google Cloud Monitoring.
+
+2. **Google Cloud Operations Suite**: I’ll enable GKE’s logging and monitoring options on GCP to automatically integrate container and pod-level logs and metrics.
+
+3. **Secrets Management**: I’ll ensure that Kubernetes secrets (like GITHUB_TOKEN, JFROG_USERNAME, POSTGRES_PASSWORD) are securely managed. I’ll also look at using **Google Secret Manager** for additional control and set up monitoring for any changes to these secrets.
+
+---
+
+This setup will give us a comprehensive foundation for logging and monitoring, making it easier to manage, troubleshoot, and optimize our application and infrastructure. Let me know if any additional details are needed!
+
