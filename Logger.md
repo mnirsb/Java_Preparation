@@ -700,4 +700,149 @@ If you encounter TypeScript issues with third-party libraries:
    }
    ```
 
-This should resolve the issues while still allowing you to benefit from log rotation.
+This should resolve the issues while still allowing you to benefit from log 
+
+
+---
+
+To implement daily rotating log files with Pino in a way that is compatible with GCP (Google Cloud Platform), you can use the following alternative approach:
+
+### 1. **Using `rotating-file-stream` with `pino`**
+The `rotating-file-stream` package is a reliable alternative for log rotation and works well with Pino.
+
+#### Installation:
+```bash
+npm install rotating-file-stream
+```
+
+#### Implementation:
+
+```javascript
+import pino from 'pino';
+import rfs from 'rotating-file-stream';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+// Get the current filename to use as a label
+const __filename = fileURLToPath(import.meta.url);
+const fileLabel = path.basename(__filename);
+
+// Determine log level based on environment
+const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+
+// Create a rotating file stream
+const generalFileStream = rfs.createStream('app.log', {
+  interval: '1d', // Rotate daily
+  path: path.join(process.cwd(), 'logs'), // Directory for logs
+  compress: 'gzip', // Compress the rotated files
+  maxFiles: 14, // Keep logs for 14 days
+});
+
+const errorFileStream = rfs.createStream('error.log', {
+  interval: '1d',
+  path: path.join(process.cwd(), 'logs'),
+  compress: 'gzip',
+  maxFiles: 30, // Keep error logs for 30 days
+});
+
+// Configure Pino logger
+const logger = pino({
+  level: logLevel,
+  formatters: {
+    level: (label) => ({ level: label }),
+    log: (info) => ({
+      ...info,
+      label: fileLabel,
+    }),
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  prettyPrint: process.env.NODE_ENV !== 'production' && {
+    colorize: true,
+    translateTime: 'yyyy-mm-dd HH:MM:ss',
+  },
+  serializers: {
+    err: pino.stdSerializers.err,
+  },
+}, pino.multistream([
+  { stream: generalFileStream }, // General log file
+  { stream: errorFileStream, level: 'error' }, // Error log file
+  { stream: process.stdout, level: logLevel }, // Console output
+]));
+
+// Optional: Add a stream method for HTTP request logging with Morgan
+logger.stream = {
+  write: (message) => {
+    logger.info(message.trim());
+  }
+};
+
+export default logger;
+```
+
+### 2. **Using `@google-cloud/logging` for GCP Compatibility**
+If you are deploying to GCP and want to integrate directly with Google Cloud Logging (formerly Stackdriver Logging), you can use the `@google-cloud/logging` package.
+
+#### Installation:
+```bash
+npm install @google-cloud/logging
+```
+
+#### Implementation:
+
+```javascript
+import pino from 'pino';
+import { Logging } from '@google-cloud/logging';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+// Get the current filename to use as a label
+const __filename = fileURLToPath(import.meta.url);
+const fileLabel = path.basename(__filename);
+
+// Determine log level based on environment
+const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+
+// Create Google Cloud Logging transport
+const logging = new Logging();
+const loggingStream = logging.log('app-log').stream({
+  resource: { type: 'global' },
+});
+
+// Configure Pino logger
+const logger = pino({
+  level: logLevel,
+  formatters: {
+    level: (label) => ({ level: label }),
+    log: (info) => ({
+      ...info,
+      label: fileLabel,
+    }),
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  prettyPrint: process.env.NODE_ENV !== 'production' && {
+    colorize: true,
+    translateTime: 'yyyy-mm-dd HH:MM:ss',
+  },
+  serializers: {
+    err: pino.stdSerializers.err,
+  },
+}, pino.multistream([
+  { stream: loggingStream }, // GCP Logging
+  { stream: process.stdout, level: logLevel }, // Console output
+]));
+
+// Optional: Add a stream method for HTTP request logging with Morgan
+logger.stream = {
+  write: (message) => {
+    logger.info(message.trim());
+  }
+};
+
+export default logger;
+```
+
+### Benefits:
+1. **Using `rotating-file-stream`**: Provides robust file rotation locally.
+2. **Using `@google-cloud/logging`**: Direct integration with Google Cloud Logging for centralized log management and analysis, especially useful for applications deployed on GCP.
+
+Choose the method that best suits your deployment needs. For local development or non-cloud environments, `rotating-file-stream` is effective. For GCP deployments, integrating with `@google-cloud/logging` provides seamless log management.
