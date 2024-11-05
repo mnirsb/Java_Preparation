@@ -600,3 +600,104 @@ export default logger;
 ```
 
 Try running the script again and check the output of the debug logs to ensure everything is working as expected.
+
+
+
+----
+
+If `pino-daily-rotate-file` is causing issues and lacks TypeScript type declarations, you can switch to another solution for rotating log files. A common alternative is using `pino-rotating-file`, which may offer better compatibility and simplicity.
+
+### Steps to Use `pino-rotating-file`:
+
+1. **Install `pino-rotating-file`**:
+   ```bash
+   npm install pino-rotating-file
+   ```
+
+2. **Configure Logger with `pino-rotating-file`**:
+   Modify your logger setup to use `pino-rotating-file` for rotating logs:
+
+   ```javascript
+   import pino from 'pino';
+   import { fileURLToPath } from 'url';
+   import path from 'path';
+   import rotatingFileStream from 'pino-rotating-file';
+
+   // Get the current filename to use as a label
+   const __filename = fileURLToPath(import.meta.url);
+   const fileLabel = path.basename(__filename);
+
+   // Determine log level based on environment
+   const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+
+   // Define rotating file transport
+   const generalFileTransport = rotatingFileStream({
+     filename: 'logs/app.log',
+     interval: '1d',   // Daily rotation
+     size: '10M',      // Rotate when file reaches 10MB
+     level: logLevel,
+   });
+
+   const errorFileTransport = rotatingFileStream({
+     filename: 'logs/error.log',
+     interval: '1d',
+     level: 'error',
+   });
+
+   // Configure Pino logger
+   const logger = pino({
+     level: logLevel,
+     formatters: {
+       level: (label) => ({ level: label }),
+       log: (info) => ({
+         ...info,
+         label: fileLabel,
+       }),
+     },
+     timestamp: pino.stdTimeFunctions.isoTime,
+     prettyPrint: process.env.NODE_ENV !== 'production' && {
+       colorize: true,
+       translateTime: 'yyyy-mm-dd HH:MM:ss',
+     },
+     serializers: {
+       err: pino.stdSerializers.err,
+     },
+   }, pino.multistream([
+     { stream: generalFileTransport },     // Rotating log file for general logs
+     { stream: errorFileTransport },       // Separate file for error logs
+     { stream: process.stdout, level: logLevel }, // Console transport for development
+   ]));
+
+   // Optional: Add a stream method for HTTP request logging (if using with Morgan)
+   logger.stream = {
+     write: (message) => {
+       logger.info(message.trim());
+     }
+   };
+
+   export default logger;
+   ```
+
+### Benefits of `pino-rotating-file`:
+- **Ease of Use**: Simple configuration.
+- **Daily and Size-based Rotation**: Can rotate logs daily or when they reach a specific size.
+- **Better TypeScript Compatibility**: Usually does not have the TypeScript issues `pino-daily-rotate-file` has.
+
+### Handling TypeScript Errors:
+If you encounter TypeScript issues with third-party libraries:
+1. **Use `declare module`**:
+   Create a `d.ts` file (e.g., `global.d.ts`) in your project:
+   ```typescript
+   declare module 'pino-rotating-file';
+   ```
+2. **Ignore TypeScript Errors Temporarily**:
+   Add this in your `tsconfig.json`:
+   ```json
+   {
+     "compilerOptions": {
+       "noImplicitAny": false
+     }
+   }
+   ```
+
+This should resolve the issues while still allowing you to benefit from log rotation.
