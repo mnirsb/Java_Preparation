@@ -215,3 +215,30 @@ export default logger;
 - Ensure that your Node.js version supports ES modules (version 12.x and above).
 - Ensure your project has the correct setup to support ES modules, such as including `"type": "module"` in your `package.json`.
 - By keeping all imports consistent, you avoid confusion and potential runtime errors associated with mixed module systems.
+
+
+-----
+
+import { createLogger, format, transports } from 'winston';
+import path from 'path';
+import { fileURLToPath } from 'url';
+require('winston-daily-rotate-file');
+
+const __filename = fileURLToPath(import.meta.url);
+
+const logger = createLogger({
+  format: format.combine(
+    format.label({ label: path.basename(__filename) }),
+    format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    format.printf(
+      info => `${info.timestamp} [${info.label}] ${info.level}: ${info.message}`
+    )
+  ),
+  transports: [
+    new transports.Console(),
+    // Other transports as needed
+  ]
+});
+
+export default logger;
+
