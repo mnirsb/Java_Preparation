@@ -368,3 +368,129 @@ export default logger;
 - `path.basename(__filename)` now correctly extracts the current file’s name for logging labels.
 
 This adjustment should fix the error, and you can now use `logger` with custom labels in an ES module environment.
+
+
+
+----
+
+Here's how to implement a similar logger using **Pino** in place of **Winston**. Pino is designed to be a fast JSON logger for Node.js, with an emphasis on performance, which makes it a popular alternative to Winston.
+
+The following Pino setup will:
+- Log messages in JSON format, which is suitable for structured logging.
+- Use Pino's `pino-pretty` for console logs in development mode to make logs more readable.
+- Set up file rotation with `pino-daily-rotate-file`.
+- Include timestamp and error stack traces in logs.
+- Separate error logs into a different file.
+
+### Step 1: Install the required packages
+
+Install Pino and its additional packages:
+
+```bash
+npm install pino pino-pretty pino-daily-rotate-file
+```
+
+### Step 2: Configure the Logger
+
+Here’s how you can configure a Pino logger to achieve similar functionality:
+
+```javascript
+import pino from 'pino';
+import { fileURLToPath } from 'url';
+import path from 'path';
+import PinoDailyRotateFile from 'pino-daily-rotate-file';
+
+// Get the current filename to use as a label
+const __filename = fileURLToPath(import.meta.url);
+const fileLabel = path.basename(__filename);
+
+// Determine log level based on environment
+const logLevel = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+
+// Define a rotating log file transport
+const generalFileTransport = new PinoDailyRotateFile({
+  filename: 'logs/app-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  level: logLevel,
+  maxFiles: '14d', // Keep logs for 14 days
+  zippedArchive: true,
+});
+
+const errorFileTransport = new PinoDailyRotateFile({
+  filename: 'logs/error-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  level: 'error',
+  maxFiles: '30d', // Keep error logs for 30 days
+  zippedArchive: true,
+});
+
+// Configure Pino options
+const logger = pino({
+  level: logLevel,
+  formatters: {
+    level: (label) => ({ level: label }),
+    log: (info) => ({
+      ...info,
+      label: fileLabel,
+    }),
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  prettyPrint: process.env.NODE_ENV !== 'production' && {
+    colorize: true,
+    translateTime: 'yyyy-mm-dd HH:MM:ss',
+  },
+  serializers: {
+    err: pino.stdSerializers.err,
+  },
+}, pino.multistream([
+  { stream: generalFileTransport },     // Daily rotating log file for general logs
+  { stream: errorFileTransport },       // Separate file for error logs
+  { stream: process.stdout, level: logLevel }, // Console transport for development
+]));
+
+// Optional: Add a stream method for HTTP request logging (if using with Morgan)
+logger.stream = {
+  write: (message) => {
+    logger.info(message.trim());
+  }
+};
+
+export default logger;
+```
+
+### Explanation
+
+1. **File Transport**: We use `pino-daily-rotate-file` to handle log rotation, similar to Winston’s daily rotation functionality. Each log type (general and error) has its dedicated file transport.
+2. **Custom Format**:
+   - `formatters.log` allows you to add a custom field (`label`) to each log entry. Here, we’re using `fileLabel` as the label, which contains the current file name.
+3. **Console Transport**:
+   - Pino supports pretty-printed logs in development mode using `prettyPrint`. This helps to make logs more readable in the console by colorizing and formatting them when not in production.
+4. **Structured Logging with JSON**:
+   - Pino logs are in JSON format by default, which is ideal for centralized log management.
+5. **Error Stack Trace Serialization**:
+   - The `serializers.err` setting allows Pino to include detailed stack traces for error logs.
+
+### Optional: HTTP Request Logging with Morgan
+
+If you want to integrate Pino with HTTP request logging, you can use **Morgan** with the `logger.stream` method defined at the end, similar to how you would with Winston. Here’s a sample integration with **Morgan**:
+
+```javascript
+import express from 'express';
+import morgan from 'morgan';
+import logger from './logger.js';
+
+const app = express();
+
+// Use morgan to log HTTP requests
+app.use(morgan('combined', { stream: logger.stream }));
+
+// Your application routes go here
+
+app.listen(3000, () => {
+  logger.info('Server started on port 3000');
+});
+```
+
+### Summary
+
+This setup provides structured JSON logging with daily rotation for Pino, aligning closely with your original Winston configuration. Pino’s JSON-based logging with optional pretty-printing and serialization options make it an efficient choice, especially for applications where performance is critical.
