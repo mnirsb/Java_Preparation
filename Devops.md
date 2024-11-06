@@ -407,3 +407,90 @@ By following these steps, you'll achieve robust, structured logging that simplif
 
 This setup will give us a comprehensive foundation for logging and monitoring, making it easier to manage, troubleshoot, and optimize our application and infrastructure. Let me know if any additional details are needed!
 
+
+
+-----
+
+To add logging to the `alertsRouter.post` function using your Pino logger setup, you can insert `logger` calls at key points in the function to track its execution flow and any critical events, such as starting the operation, generating reports, and handling errors. Here’s how it could look:
+
+```javascript
+import express from 'express';
+import logger from './utils/logger.js'; // Adjust the path as needed
+
+const alertsRouter = express.Router();
+
+alertsRouter.post('/', async function (req, res) {
+  const { version, manifest, alert_name, report_id, quicklook_id } = req.body;
+
+  logger.info({ version, manifest, alert_name, report_id, quicklook_id }, 'Received alert creation request');
+
+  try {
+    let id;
+    
+    // Check if the report is already created and archived
+    if (report_id == null) {
+      logger.info('Report ID is null; generating and archiving a new report.');
+
+      const { finalReport, reportId } = await generateReport(version, manifest);
+      logger.debug({ reportId }, 'Generated report with ID');
+
+      await createArchiveReport(reportId, finalReport);
+      logger.debug({ reportId }, 'Archived the generated report');
+
+      await archiveReport(reportId, alert_name);
+      logger.info({ reportId, alert_name }, 'Archived report with alert name');
+      
+      id = reportId;
+    } else {
+      // Already archived
+      logger.info({ report_id }, 'Report ID is not null; checking if alert already exists');
+      
+      const existingAlert = await getAlertById(report_id);
+      if (existingAlert.length > 0) {
+        const message = 'Alert already exists.';
+        logger.warn({ report_id }, message);
+        return res.status(400).send({ message, success: false });
+      }
+
+      id = report_id;
+    }
+
+    await createAlertRow(id, {}, version, manifest, alert_name, quicklook_id);
+    logger.info({ id, alert_name }, 'Created a new alert row in the database');
+
+    await setAlert(id, true);
+    logger.info({ id }, 'Set alert status to active');
+
+    return res.send({ success: true });
+  } catch (e) {
+    const message = `Unable to retrieve vulnerability report for branch ${version}, customer ${manifest}.`;
+    logger.error({ error: e, version, manifest }, message);
+    return res.status(500).send({ message, success: false });
+  }
+});
+
+export default alertsRouter;
+```
+
+### Explanation of Added Logs
+1. **Request Received**:
+   - Logs the incoming request details, including `version`, `manifest`, `alert_name`, `report_id`, and `quicklook_id`.
+
+2. **Decision Point: Report Generation**:
+   - If `report_id` is `null`, it logs that the report needs to be generated and archived.
+   - If `report_id` is not `null`, it logs that the function will check if an alert already exists.
+
+3. **Report Generation**:
+   - Logs the `reportId` after generating a report.
+
+4. **Archiving the Report**:
+   - Logs once the report is successfully archived with `archiveReport()`.
+
+5. **Alert Creation**:
+   - Logs details when a new alert row is created and when the alert is set to active status.
+
+6. **Error Handling**:
+   - If an error occurs, it logs the error details along with context information like `version` and `manifest`, which helps in debugging.
+
+This enhanced logging provides better observability for each step of the function, helping to diagnose issues and monitor important actions.
+
