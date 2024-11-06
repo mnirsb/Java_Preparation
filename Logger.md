@@ -946,3 +946,184 @@ export default logger;
 2. **Ensure Logs Directory**: A check is added to create the `logs` directory if it doesn't already exist, ensuring the directory structure is ready for the log files.
 
 With these changes, both your log files and their respective audit files will be saved inside the `logs` directory.
+
+
+
+----
+
+
+To enhance your `main.js` file with Pino logger based on industry standards, you should log various critical events, errors, and important state changes to ensure effective debugging and monitoring. Here’s how you can integrate logging into your application:
+
+### 1. **Basic Server Startup and Errors**
+Log when the server starts and if there are any critical errors in startup or runtime.
+
+```javascript
+import logger from './utils/logger.js'; // Import your Pino logger
+
+app.listen(PORT, () => {
+  logger.info(`Server is running on port ${PORT}`);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception thrown:', error);
+  process.exit(1); // Optional: Shutdown process to avoid inconsistent state
+});
+```
+
+### 2. **Liveness Check**
+Log when the liveness check is hit. This helps monitor health checks.
+
+```javascript
+app.get('/liveness', (req, res) => {
+  logger.debug('Liveness check endpoint hit');
+  res.status(200).json({ status: "Healthy" });
+});
+```
+
+### 3. **Routing Logs**
+Log the entry and exit of significant routes for debugging and tracing.
+
+```javascript
+app.use((req, res, next) => {
+  logger.info(`Incoming request: ${req.method} ${req.url}`);
+  res.on('finish', () => {
+    logger.info(`Response status: ${res.statusCode} for ${req.method} ${req.url}`);
+  });
+  next();
+});
+```
+
+### 4. **Authentication and Critical Operations**
+Log significant authentication events or sensitive operations.
+
+```javascript
+app.use('/authentication', authenticationRouter);
+// Example inside the authentication router
+// logger.info(`User login attempt: ${user.email}`);
+```
+
+### 5. **Scheduled Jobs**
+Replace `console.log` and `console.error` in your cron job with Pino logger.
+
+```javascript
+cron.schedule('0 0 * * *', async () => {
+  try {
+    await updateAlerts();
+    await deleteStaleReports();
+    logger.info('Successfully updated alerts and deleted stale reports at midnight EST.');
+  } catch (e) {
+    logger.error('Error during scheduled job:', e);
+  }
+});
+```
+
+### 6. **Middleware for Error Handling**
+Log errors globally through middleware.
+
+```javascript
+app.use((err, req, res, next) => {
+  logger.error(`Error occurred: ${err.message}`, { stack: err.stack });
+  res.status(500).send('Internal Server Error');
+});
+```
+
+### 7. **Session Management**
+Log session-related operations, especially when sessions are cleared or expired.
+
+```javascript
+cron.schedule('*/10 * * * *', clearExpiredSessions);
+// Inside `clearExpiredSessions` function
+logger.info('Clearing expired sessions...');
+```
+
+### 8. **Morgan HTTP Logging**
+You already have this configured:
+```javascript
+app.use(morgan('combined', { stream: logger.stream }));
+```
+This setup logs all incoming HTTP requests and their responses.
+
+### 9. **Custom Log Levels for Different Scenarios**
+- **Info**: General application flow.
+- **Debug**: Detailed information for debugging (development environment).
+- **Error**: Capture error conditions.
+- **Warn**: Log potential issues or non-critical errors.
+
+### Example Enhanced Logging:
+Here's how the final `main.js` might look with Pino integrated:
+
+```javascript
+import express from 'express';
+import cookieParser from 'cookie-parser';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import cron from 'node-cron';
+import morgan from 'morgan';
+import logger from './utils/logger.js';
+import { updateAlerts, deleteStaleReports } from './services/alertsService';
+import { updateRoadmap } from './services/roadmapService';
+// Import your routers
+import authenticationRouter from './routes/authentication';
+import sbomRouter from './routes/sbom';
+import singleReportRouter from './routes/singleReport';
+// Other routers...
+
+const app = express();
+const PORT = process.env.PORT || 8000;
+
+app.use(cookieParser());
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(cors());
+
+app.get('/liveness', (req, res) => {
+  logger.debug('Liveness check endpoint hit');
+  res.status(200).json({ status: "Healthy" });
+});
+
+app.use('/sbom', sbomRouter);
+app.use('/single-report', singleReportRouter);
+// Other routers...
+
+app.use(morgan('combined', { stream: logger.stream }));
+
+cron.schedule('0 0 4 * * *', updateRoadmap);
+
+cron.schedule('0 0 * * *', async () => {
+  try {
+    await updateAlerts();
+    await deleteStaleReports();
+    logger.info('Successfully updated alerts and deleted stale reports at midnight EST.');
+  } catch (e) {
+    logger.error('Error during scheduled job:', e);
+  }
+});
+
+app.listen(PORT, () => {
+  logger.info(`Server is running on port ${PORT}`);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception thrown:', error);
+  process.exit(1);
+});
+
+app.use((err, req, res, next) => {
+  logger.error(`Error occurred: ${err.message}`, { stack: err.stack });
+  res.status(500).send('Internal Server Error');
+});
+```
+
+### Testing
+1. **Startup**: Run the application and ensure startup logs are present.
+2. **Endpoints**: Trigger various endpoints and verify the request and response logs.
+3. **Error Handling**: Simulate errors and check the error logs.
+4. **Cron Jobs**: Verify cron job execution logs at scheduled times.
