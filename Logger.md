@@ -1127,3 +1127,66 @@ app.use((err, req, res, next) => {
 2. **Endpoints**: Trigger various endpoints and verify the request and response logs.
 3. **Error Handling**: Simulate errors and check the error logs.
 4. **Cron Jobs**: Verify cron job execution logs at scheduled times.
+
+
+-----
+
+
+const pino = require('pino');
+const logger = pino({ level: 'info' });
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  user: 'admin',
+  host: process.env.POSTGRES_HOST,
+  database: 'jiggu',
+  password: 'admin',
+  port: 5432,
+});
+
+// Log pool initialization
+logger.info('PostgreSQL pool initialized', {
+  host: process.env.POSTGRES_HOST,
+  database: 'jiggu',
+  port: 5432,
+});
+
+// Log on successful connection to the database
+pool.on('connect', (client) => {
+  logger.info('New client connection acquired from pool');
+});
+
+// Log when client is released back to the pool
+pool.on('acquire', (client) => {
+  logger.info('Client checked out from pool');
+});
+
+pool.on('release', (client) => {
+  logger.info('Client released back to pool');
+});
+
+// Log any error events related to the pool
+pool.on('error', (err) => {
+  logger.error('Unexpected error on idle client', { error: err.message });
+});
+
+// Wrap query execution to log performance and errors
+async function executeQuery(queryText, params) {
+  const start = Date.now();
+  try {
+    logger.info('Executing query', { queryText, params });
+    const res = await pool.query(queryText, params);
+    const duration = Date.now() - start;
+    logger.info('Query executed successfully', { duration, rowCount: res.rowCount });
+    return res;
+  } catch (error) {
+    logger.error('Query execution error', { queryText, error: error.message });
+    throw error;
+  }
+}
+
+// Export the pool and executeQuery function for use in the application
+module.exports = {
+  pool,
+  executeQuery,
+};
