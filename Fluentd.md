@@ -85,3 +85,128 @@ This will ensure that logs are in JSON format, which aligns well with Fluentd’
 - **Custom Logging Options**: Fluentd provides more custom options like log filtering, sampling, and output formats if you need additional control.
 
 Once you have this set up, Fluentd will continuously forward logs to Google Cloud Logging, where you can monitor and analyze them using GCP’s logging tools. This setup should meet centralized logging needs and provide a robust solution for monitoring your Node.js backend.
+
+
+
+---
+
+
+
+To configure Fluentd in Kubernetes, we need to set up a **Fluentd DaemonSet**. This will run Fluentd as a logging agent on each node in your cluster, capturing logs from all containers (including your backend using PINO) and forwarding them to Google Cloud Logging.
+
+Here’s a step-by-step guide to set this up:
+
+### Step 1: Create a Fluentd Configuration File
+
+First, we’ll create a `ConfigMap` in Kubernetes to define how Fluentd collects and forwards logs. This configuration tells Fluentd where to find the logs and how to send them to Google Cloud Logging.
+
+1. Create a file called `fluentd-configmap.yaml` with the following contents:
+
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: fluentd-config
+     namespace: <your-namespace>  # Replace with your namespace
+   data:
+     fluent.conf: |
+       <source>
+         @type tail
+         path /var/log/containers/*.log
+         pos_file /var/log/td-agent/containers.log.pos
+         tag kubernetes.*
+         format json
+       </source>
+
+       <match **>
+         @type google_cloud
+         project <YOUR_PROJECT_ID>        # Replace with your GCP project ID
+         zone <YOUR_GCP_ZONE>             # Replace with your GCP zone
+         log_name <YOUR_LOG_NAME>         # Customize a log name if needed
+       </match>
+   ```
+
+   - This configuration sets up Fluentd to read logs from the container log files in `/var/log/containers` (the default path in Kubernetes).
+   - It forwards logs to Google Cloud Logging by using the `google_cloud` plugin, with your GCP project ID and zone.
+
+### Step 2: Deploy Fluentd as a DaemonSet
+
+Next, create a **DaemonSet** to run Fluentd on each node.
+
+1. Create a file called `fluentd-daemonset.yaml` with this configuration:
+
+   ```yaml
+   apiVersion: apps/v1
+   kind: DaemonSet
+   metadata:
+     name: fluentd
+     namespace: <your-namespace>  # Replace with your namespace
+   spec:
+     selector:
+       matchLabels:
+         name: fluentd
+     template:
+       metadata:
+         labels:
+           name: fluentd
+       spec:
+         containers:
+         - name: fluentd
+           image: fluent/fluentd-kubernetes-daemonset:stable   # Fluentd image
+           env:
+             - name: GOOGLE_APPLICATION_CREDENTIALS
+               value: /var/secrets/google/key.json             # Path to Google service account key
+           volumeMounts:
+             - name: config-volume
+               mountPath: /fluentd/etc/fluent.conf
+               subPath: fluent.conf
+             - name: varlog
+               mountPath: /var/log
+             - name: google-cloud-key
+               mountPath: /var/secrets/google
+         volumes:
+           - name: config-volume
+             configMap:
+               name: fluentd-config
+           - name: varlog
+             hostPath:
+               path: /var/log
+           - name: google-cloud-key
+             secret:
+               secretName: google-cloud-key    # This secret should hold your Google Cloud service account key
+   ```
+
+   - This DaemonSet runs Fluentd on each node and mounts:
+     - The `ConfigMap` you created to configure Fluentd.
+     - The `/var/log` directory, where Kubernetes stores container logs.
+     - A secret for your Google Cloud service account key (`google-cloud-key`).
+
+2. **Create the Secret** for Google Cloud Credentials:
+   If you haven’t done so, you’ll need to create a Kubernetes secret with your Google Cloud service account key JSON file.
+
+   ```bash
+   kubectl create secret generic google-cloud-key --from-file=key.json=<path-to-your-key.json> --namespace <your-namespace>
+   ```
+
+### Step 3: Apply the Configurations
+
+Now, apply both configurations to Kubernetes:
+
+```bash
+kubectl apply -f fluentd-configmap.yaml
+kubectl apply -f fluentd-daemonset.yaml
+```
+
+### Step 4: Verify Fluentd is Running and Logs are Being Forwarded
+
+1. **Check Fluentd Pods**: Run this command to check if Fluentd DaemonSet pods are running on each node:
+
+   ```bash
+   kubectl get pods -n <your-namespace> -l name=fluentd
+   ```
+
+2. **Verify Logs in Google Cloud Logging**:
+   - Go to **Google Cloud Console** > **Logging** > **Logs Explorer**.
+   - Look for logs from your Kubernetes cluster. They should now be collected and stored in Google Cloud Logging.
+
+This setup will ensure that Fluentd runs on each Kubernetes node, captures logs from your containers (including PINO logs), and forwards them to Google Cloud Logging.
