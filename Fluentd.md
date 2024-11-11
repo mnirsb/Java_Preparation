@@ -276,3 +276,113 @@ In short:
 - This ConfigMap tells Fluentd to read all container logs in `/var/log/containers/*.log`.
 - It tracks its progress so it doesn’t miss any logs.
 - It forwards the logs to Google Cloud Logging using your project’s information, so you can view them centrally in GCP.
+
+
+---
+
+
+This configuration defines a Kubernetes **DaemonSet** for deploying Fluentd on each node in your cluster. Fluentd will collect logs from containers running on each node and send them to Google Cloud. Here’s a breakdown of each part:
+
+### 1. **DaemonSet Definition**
+   ```yaml
+   apiVersion: apps/v1
+   kind: DaemonSet
+   metadata:
+     name: fluentd
+     namespace: <your-namespace>  # Replace with your namespace
+   ```
+   - **apiVersion** and **kind** specify that this is a **DaemonSet**. A DaemonSet ensures a copy of Fluentd runs on every node in your cluster.
+   - **namespace** is where Fluentd will run. Replace `<your-namespace>` with the appropriate namespace in your cluster.
+
+### 2. **Selector and Labels**
+   ```yaml
+   selector:
+     matchLabels:
+       name: fluentd
+   template:
+     metadata:
+       labels:
+         name: fluentd
+   ```
+   - The **selector** ensures that only pods with the label `name: fluentd` are managed by this DaemonSet.
+   - **Labels** (`name: fluentd`) help identify and manage these Fluentd pods.
+
+### 3. **Service Account**
+   ```yaml
+   serviceAccountName: fluentd
+   ```
+   - **serviceAccountName** specifies the **ServiceAccount** to use, which should have permission to write logs to Google Cloud. 
+
+### 4. **Fluentd Container**
+   ```yaml
+   containers:
+   - name: fluentd
+     image: fluent/fluentd-kubernetes-daemonset:stable
+   ```
+   - **name** specifies the container name as `fluentd`.
+   - **image** specifies the Fluentd image. The `fluentd-kubernetes-daemonset:stable` image is optimized for use in Kubernetes.
+
+### 5. **Environment Variables**
+   ```yaml
+   env:
+     - name: GOOGLE_APPLICATION_CREDENTIALS
+       value: /var/secrets/google/key.json  # Path to Google service account key
+   ```
+   - **GOOGLE_APPLICATION_CREDENTIALS** points to the Google Cloud service account key file required for authentication with Google Cloud. This file allows Fluentd to authenticate and push logs to Google Cloud.
+
+### 6. **Volume Mounts**
+   ```yaml
+   volumeMounts:
+     - name: config-volume
+       mountPath: /fluentd/etc/fluent.conf
+       subPath: fluent.conf
+     - name: varlog
+       mountPath: /var/log
+     - name: google-cloud-key
+       mountPath: /var/secrets/google
+   ```
+   - **config-volume** mounts the Fluentd configuration from a ConfigMap (explained in the **Volumes** section below) to `/fluentd/etc/fluent.conf`.
+   - **varlog** mounts the host’s `/var/log` directory, which holds container logs, so Fluentd can read them.
+   - **google-cloud-key** mounts the Google Cloud credentials (from a Kubernetes Secret) at `/var/secrets/google`.
+
+### 7. **Resource Limits**
+   ```yaml
+   resources:
+     limits:
+       memory: "500Mi"
+       cpu: "200m"
+     requests:
+       memory: "200Mi"
+       cpu: "100m"
+   ```
+   - **resources** define memory and CPU limits to control how much of each resource Fluentd can use.
+   - **limits** specify the maximum resources Fluentd can consume.
+   - **requests** specify the minimum resources reserved for Fluentd.
+
+### 8. **Volumes**
+   ```yaml
+   volumes:
+     - name: config-volume
+       configMap:
+         name: fluentd-config
+     - name: varlog
+       hostPath:
+         path: /var/log
+     - name: google-cloud-key
+       secret:
+         secretName: google-cloud-key  # Create this secret with your GCP credentials
+   ```
+   - **config-volume** is created from a ConfigMap named `fluentd-config`. This provides the configuration file (`fluent.conf`) used by Fluentd to route logs.
+   - **varlog** uses a **hostPath** to mount the `/var/log` directory from the host node. This is where Kubernetes writes container logs.
+   - **google-cloud-key** uses a Kubernetes **Secret** named `google-cloud-key`, which contains the Google Cloud service account credentials. These credentials are used by Fluentd for authentication when sending logs to Google Cloud.
+
+---
+
+### Summary:
+This DaemonSet configuration:
+- Deploys Fluentd as a DaemonSet, so it runs on each node.
+- Mounts necessary configuration and credentials to allow Fluentd to read logs and push them to Google Cloud.
+- Configures resource limits for efficient operation.
+- Uses Kubernetes Secrets for secure storage of Google Cloud credentials. 
+
+This setup allows Fluentd to collect logs from Kubernetes containers and send them securely to Google Cloud Logging for centralized log management.
